@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "thor"
-  spec.add_dependency "excon"
+  spec.add_dependency "rest-client"
   spec.add_dependency 'archive-tar-minitar'
 
   spec.add_development_dependency "bundler", "~> 1.3"
