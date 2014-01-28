@@ -14,14 +14,24 @@ class MorphCLI < Thor
   def execute
     puts "This is where I would be executing the scraper in #{options[:directory]}"
     # Let's start by just sending a file to a local test server
-    file = create_dir_tar(options[:directory]).path
+    file = create_dir_tar(options[:directory])
     begin
-      body = URI.encode_www_form(:key => '1234abcd', :code => File.read(file))
-      puts "Sending body: #{body}"
-      Excon.post("http://localhost:3000/run", :body => body, :headers => { "Content-Type" => "multipart/form-data" })
-      puts "Hello sent!"
-    rescue Excon::Errors::SocketError
-      puts "Hmmm.. Can't connect to Morph"
+      chunk_count = 0
+      chunker = lambda do
+        if chunk_count == 0
+          v = "key=1234abcd&code="
+        else
+          v = URI.encode_www_form_component(file.read(Excon.defaults[:chunk_size]).to_s)
+        end
+        chunk_count += 1
+        puts v
+        v
+      end
+
+      Excon.defaults[:chunk_size] = 1000
+      Excon.post("http://localhost:3000/run", :headers => { "Content-Type" => "multipart/form-data", "Transfer-Encoding" => "chunked" }, :request_block => chunker)
+    rescue Excon::Errors::SocketError => e
+      puts "Hmmm.. Can't connect to Morph: #{e}"
     end
   end
 
