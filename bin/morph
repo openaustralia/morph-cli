@@ -2,6 +2,10 @@
 # Commandline client for controlling morph and running scrapers and things
 
 require "thor"
+require "excon"
+# TODO Do compression on the tar file
+#require 'zlib'
+require 'archive/tar/minitar'
 
 class MorphCLI < Thor
   desc "[execute]", "execute morph scraper"
@@ -9,7 +13,32 @@ class MorphCLI < Thor
 
   def execute
     puts "This is where I would be executing the scraper in #{options[:directory]}"
+    # Let's start by just sending a file to a local test server
+    file = create_dir_tar(options[:directory]).path
+    begin
+      body = URI.encode_www_form(:key => '1234abcd', :code => File.read(file))
+      puts "Sending body: #{body}"
+      Excon.post("http://localhost:3000/run", :body => body, :headers => { "Content-Type" => "multipart/form-data" })
+      puts "Hello sent!"
+    rescue Excon::Errors::SocketError
+      puts "Hmmm.. Can't connect to Morph"
+    end
   end
+
+  no_commands {
+    # Nicked from docker-api gem
+    # TODO Temporary file should be named differently every time
+    def create_dir_tar(directory)
+      cwd = FileUtils.pwd
+      tempfile = File.new('/tmp/out', 'wb')
+      FileUtils.cd(directory)
+      Archive::Tar::Minitar.pack('.', tempfile)
+      File.new('/tmp/out', 'r')
+    ensure
+      FileUtils.cd(cwd)
+    end    
+  }
+
 end
 
 # If morph is run without any parameters it's the same as "morph execute"
