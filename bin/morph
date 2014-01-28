@@ -12,25 +12,67 @@ class MorphCLI < Thor
   option :directory, :default => Dir.getwd
 
   def execute
-    puts "This is where I would be executing the scraper in #{options[:directory]}"
     puts "Uploading code..."
-    file = create_dir_tar(options[:directory])
+    file = create_tar(options[:directory], all_paths(options[:directory]))
     RestClient.post("http://localhost:3000/run", :key => "1234abcd", :code => file)
     puts "Finished uploading code"
   end
 
   no_commands {
-    # Nicked from docker-api gem
     # TODO Temporary file should be named differently every time
     def create_dir_tar(directory)
+      in_directory(directory) do
+        tempfile = File.new('/tmp/out', 'wb')
+        Archive::Tar::Minitar.pack('.', tempfile)
+        File.new('/tmp/out', 'r')
+      end
+    end
+
+    def in_directory(directory)
       cwd = FileUtils.pwd
-      tempfile = File.new('/tmp/out', 'wb')
       FileUtils.cd(directory)
-      Archive::Tar::Minitar.pack('.', tempfile)
-      File.new('/tmp/out', 'r')
+      yield
     ensure
       FileUtils.cd(cwd)
-    end    
+    end
+
+    def create_tar(directory, paths)
+      tempfile = File.new('/tmp/out', 'wb')
+
+      in_directory(directory) do
+        begin
+          tar = Archive::Tar::Minitar::Output.new("/tmp/out")
+          paths.each do |entry|
+            Archive::Tar::Minitar.pack_file(entry, tar)
+          end
+        ensure
+          tar.close
+        end
+      end
+      File.new('/tmp/out', 'r')
+    end
+
+    # Relative paths to all the files in the given directory (recursive)
+    # (except for anything below a directory starting with ".")
+    def all_paths(directory)
+      result = []
+      Find.find(directory) do |path|
+        if FileTest.directory?(path)
+          if File.basename(path)[0] == ?.
+            Find.prune
+          end
+        else
+          result << Pathname.new(path).relative_path_from(Pathname.new(directory)).to_s
+        end      
+      end
+      result
+    end
+
+    # Relative path of database file (if it exists)
+    def database_path(directory)
+      path = "data.sqlite"
+      path if File.exists?(File.join(directory, path))
+    end
   }
 
 end
