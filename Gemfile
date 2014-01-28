@@ -1,3 +1,4 @@
-source "https://rubygems.org"
+source 'https://rubygems.org'
 
-gem "thor"
+# Specify your gem's dependencies in morph.gemspec
+gemspec
