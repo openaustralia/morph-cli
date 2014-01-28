@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# Commandline client for controlling morph and running scrapers and things
+
+require "thor"
+
+class MorphCLI < Thor
+  desc "[execute]", "execute morph scraper"
+  option :directory, :default => Dir.getwd
+
+  def execute
+    puts "This is where I would be executing the scraper in #{options[:directory]}"
+  end
+end
+
+# If morph is run without any parameters it's the same as "morph execute"
+MorphCLI.start(ARGV.empty? ? ["execute"] : ARGV)
