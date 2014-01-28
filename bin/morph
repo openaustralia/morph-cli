@@ -14,8 +14,7 @@ class MorphCLI < Thor
   def execute
     puts "Uploading code..."
     file = create_tar(options[:directory], all_paths(options[:directory]))
-    RestClient.post("http://localhost:3000/run", :key => "1234abcd", :code => file)
-    puts "Finished uploading code"
+    puts RestClient.post("http://localhost:3000/run", :key => "1234abcd", :code => file)
   end
 
   no_commands {
