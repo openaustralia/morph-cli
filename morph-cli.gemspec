@@ -1,11 +1,11 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'morph/version'
+require 'morph-cli/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "morph"
-  spec.version       = Morph::VERSION
+  spec.name          = "morph-cli"
+  spec.version       = MorphCLI::VERSION
   spec.authors       = ["Matthew Landauer"]
   spec.email         = ["matthew@oaf.org.au"]
   spec.description   = %q{Command line interface for Morph}

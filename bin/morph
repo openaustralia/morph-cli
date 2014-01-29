@@ -9,7 +9,7 @@ require 'archive/tar/minitar'
 require 'pathname'
 require 'json'
 
-class MorphCLI < Thor
+class MorphThor < Thor
   class_option :dev, default: false, type: :boolean, desc: "Run against a local dev of Morph running at http://localhost:3000"
 
   desc "[execute]", "execute morph scraper"
@@ -133,4 +133,4 @@ class MorphCLI < Thor
 end
 
 # If morph is run without any parameters it's the same as "morph execute"
-MorphCLI.start(ARGV.empty? ? ["execute"] : ARGV)
+MorphThor.start(ARGV.empty? ? ["execute"] : ARGV)
