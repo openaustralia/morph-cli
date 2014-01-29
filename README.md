@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/morph-cli.png)](http://badge.fury.io/rb/morph-cli)
+
 # Morph
 
 TODO: Write a gem description
