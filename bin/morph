@@ -7,6 +7,7 @@ require "rest_client"
 #require 'zlib'
 require 'archive/tar/minitar'
 require 'pathname'
+require 'json'
 
 class MorphCLI < Thor
   desc "[execute]", "execute morph scraper"
@@ -15,7 +16,19 @@ class MorphCLI < Thor
   def execute
     puts "Uploading code..."
     file = create_tar(options[:directory], all_paths(options[:directory]))
-    puts RestClient.post("http://localhost:3000/run", :key => "1234abcd", :code => file)
+    result = RestClient.post("http://localhost:3000/run", :key => "1234abcd", :code => file)
+    # Interpret each line separately as json
+    result.split("\n").each do |line|
+      a = JSON.parse(line)
+      if a["stream"] == "stdout"
+        s = $stdout
+      elsif a["stream"] == "stderr"
+        s = $stderr
+      else
+        raise "Unknown stream"
+      end
+      s.puts a["text"]
+    end
   end
 
   no_commands {
