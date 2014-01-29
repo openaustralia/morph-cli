@@ -6,6 +6,7 @@ require "rest_client"
 # TODO Do compression on the tar file
 #require 'zlib'
 require 'archive/tar/minitar'
+require 'pathname'
 
 class MorphCLI < Thor
   desc "[execute]", "execute morph scraper"
