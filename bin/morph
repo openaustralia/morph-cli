@@ -14,9 +14,25 @@ class MorphCLI < Thor
   option :directory, :default => Dir.getwd
 
   def execute
-    puts "Uploading code..."
-    file = create_tar(options[:directory], all_paths(options[:directory]))
-    result = RestClient.post("http://localhost:3000/run", :key => "1234abcd", :code => file)
+    api_key = retrieve_api_key
+    if api_key.nil?
+      api_key = ask("What is your key? (Go to http://localhost:3000/settings)")
+      save_api_key(api_key)
+    end
+
+    api_key_is_valid = false
+    until api_key_is_valid
+      begin
+        puts "Uploading and running..."
+        file = create_tar(options[:directory], all_paths(options[:directory]))
+        result = RestClient.post("http://localhost:3000/run", :api_key => api_key, :code => file)
+        api_key_is_valid = true
+      rescue RestClient::Unauthorized
+        puts "Your key isn't working. Let's try again."
+        api_key = ask("What is your key? (Go to http://localhost:3000/settings)")
+        save_api_key(api_key)
+      end
+    end
     # Interpret each line separately as json
     result.split("\n").each do |line|
       a = JSON.parse(line)
@@ -32,6 +48,22 @@ class MorphCLI < Thor
   end
 
   no_commands {
+    def config_path
+      File.join(Dir.home, ".morph")
+    end
+
+    def save_api_key(api_key)
+      configuration = {api_key: api_key}
+      File.open(config_path, "w") {|f| f.write configuration.to_yaml}
+      File.chmod(0600, config_path)
+    end
+
+    def retrieve_api_key
+      if File.exists?(config_path)
+        YAML.load(File.read(config_path))[:api_key]
+      end
+    end
+
     # TODO Temporary file should be named differently every time
     def create_dir_tar(directory)
       in_directory(directory) do
