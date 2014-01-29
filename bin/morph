@@ -10,13 +10,15 @@ require 'pathname'
 require 'json'
 
 class MorphCLI < Thor
+  class_option :dev, default: false, type: :boolean, desc: "Run against a local dev of Morph running at http://localhost:3000"
+
   desc "[execute]", "execute morph scraper"
   option :directory, :default => Dir.getwd
 
   def execute
     api_key = retrieve_api_key
     if api_key.nil?
-      api_key = ask("What is your key? (Go to http://localhost:3000/settings)")
+      api_key = ask("What is your key? (Go to #{base_url(options)}/settings)")
       save_api_key(api_key)
     end
 
@@ -25,11 +27,11 @@ class MorphCLI < Thor
       begin
         puts "Uploading and running..."
         file = create_tar(options[:directory], all_paths(options[:directory]))
-        result = RestClient.post("http://localhost:3000/run", :api_key => api_key, :code => file)
+        result = RestClient.post("#{base_url(options)}/run", :api_key => api_key, :code => file)
         api_key_is_valid = true
       rescue RestClient::Unauthorized
         puts "Your key isn't working. Let's try again."
-        api_key = ask("What is your key? (Go to http://localhost:3000/settings)")
+        api_key = ask("What is your key? (Go to #{base_url(options)}/settings)")
         save_api_key(api_key)
       end
     end
@@ -48,6 +50,14 @@ class MorphCLI < Thor
   end
 
   no_commands {
+    def base_url(options)
+      if options[:dev]
+        "http://127.0.0.1:3000"
+      else
+        "https://morph.io"
+      end
+    end
+
     def config_path
       File.join(Dir.home, ".morph")
     end
