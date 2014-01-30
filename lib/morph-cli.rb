@@ -1,8 +1,8 @@
 require "morph-cli/version"
 
 module MorphCLI
-  def self.base_url(options)
-    if options[:dev]
+  def self.base_url(development)
+    if development
       "http://127.0.0.1:3000"
     else
       "https://morph.io"
