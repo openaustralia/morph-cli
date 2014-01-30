@@ -1,10 +1,10 @@
 require "morph-cli/version"
 
 module MorphCLI
-  def self.execute(directory, api_key, development)
+  def self.execute(directory, development, env_config)
     puts "Uploading and running..."
     file = MorphCLI.create_tar(directory, MorphCLI.all_paths(directory))
-    result = RestClient.post("#{MorphCLI.base_url(development)}/run", :api_key => api_key, :code => file)
+    result = RestClient.post("#{env_config[:base_url]}/run", :api_key => env_config[:api_key], :code => file)
     # Interpret each line separately as json
     result.split("\n").each do |line|
       a = JSON.parse(line)
@@ -19,14 +19,6 @@ module MorphCLI
     end
   end
   
-  def self.base_url(development)
-    if development
-      "http://127.0.0.1:3000"
-    else
-      "https://morph.io"
-    end
-  end
-
   def self.config_path
     File.join(Dir.home, ".morph")
   end
@@ -36,11 +28,20 @@ module MorphCLI
     File.chmod(0600, config_path)
   end
 
+  DEFAULT_CONFIG = {
+    development: {
+      base_url: "http://127.0.0.1:3000"
+    },
+    production: {
+      base_url: "https://morph.io"
+    }
+  }
+
   def self.load_config
     if File.exists?(config_path)
       YAML.load(File.read(config_path))
     else
-      {}
+      DEFAULT_CONFIG
     end
   end
 

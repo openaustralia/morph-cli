@@ -11,30 +11,42 @@ require 'json'
 require 'morph-cli'
 
 class MorphThor < Thor
-  class_option :dev, default: false, type: :boolean, desc: "Run against a local dev of Morph running at http://localhost:3000"
+  class_option :dev, default: false, type: :boolean, desc: "Run against a local dev of Morph"
 
   desc "[execute]", "execute morph scraper"
   option :directory, :default => Dir.getwd
 
   def execute
     config = MorphCLI.load_config
-    config = ask_and_save_api_key(options, config) if config[:api_key].nil?
+    if options[:dev]
+      env_config = config[:development]
+    else
+      env_config = config[:production]
+    end
+
+    config = ask_and_save_api_key(env_config, config) if env_config[:api_key].nil?
 
     api_key_is_valid = false
     until api_key_is_valid
       begin
-        MorphCLI.execute(options[:directory], config[:api_key], options[:dev])
+        MorphCLI.execute(options[:directory], options[:dev], env_config)
         api_key_is_valid = true
       rescue RestClient::Unauthorized
         puts "Your key isn't working. Let's try again."
-        config = ask_and_save_api_key(options, config)
+        config = ask_and_save_api_key(env_config, config)
+      rescue Errno::ECONNREFUSED => e
+        $stderr.puts "Morph doesn't look to be running at #{env_config[:base_url]} (#{e})"
+        exit(1)
+      rescue RestClient::InternalServerError => e
+        $stderr.puts "Uh oh. Something has gone wrong on the Morph server at #{env_config[:base_url]} (#{e})"
+        exit(1)        
       end
     end
   end
 
   no_commands {
-    def ask_and_save_api_key(options, config)
-      config[:api_key] = ask("What is your key? (Go to #{MorphCLI.base_url(options[:dev])}/settings)")
+    def ask_and_save_api_key(env_config, config)
+      env_config[:api_key] = ask("What is your key? (Go to #{env_config[:base_url]}/settings)")
       MorphCLI.save_config(config)
       config
     end
