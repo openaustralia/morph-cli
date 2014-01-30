@@ -17,10 +17,8 @@ class MorphThor < Thor
   option :directory, :default => Dir.getwd
 
   def execute
-    api_key = MorphCLI.retrieve_api_key
-    if api_key.nil?
-      api_key = ask_and_save_api_key(options)
-    end
+    api_key = MorphCLI.retrieve_api_key    
+    api_key = ask_and_save_api_key(options) if api_key.nil?
 
     api_key_is_valid = false
     until api_key_is_valid
