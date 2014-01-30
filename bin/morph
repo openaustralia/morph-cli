@@ -17,26 +17,26 @@ class MorphThor < Thor
   option :directory, :default => Dir.getwd
 
   def execute
-    api_key = MorphCLI.load_config[:api_key]
-    api_key = ask_and_save_api_key(options) if api_key.nil?
+    config = MorphCLI.load_config
+    config = ask_and_save_api_key(options, config) if config[:api_key].nil?
 
     api_key_is_valid = false
     until api_key_is_valid
       begin
-        MorphCLI.execute(options[:directory], api_key, options[:dev])
+        MorphCLI.execute(options[:directory], config[:api_key], options[:dev])
         api_key_is_valid = true
       rescue RestClient::Unauthorized
         puts "Your key isn't working. Let's try again."
-        api_key = ask_and_save_api_key(options)
+        config = ask_and_save_api_key(options, config)
       end
     end
   end
 
   no_commands {
-    def ask_and_save_api_key(options)
-      api_key = ask("What is your key? (Go to #{MorphCLI.base_url(options[:dev])}/settings)")
-      MorphCLI.save_api_key({api:key: api_key})
-      api_key
+    def ask_and_save_api_key(options, config)
+      config[:api_key] = ask("What is your key? (Go to #{MorphCLI.base_url(options[:dev])}/settings)")
+      MorphCLI.save_config(config)
+      config
     end
   }
 end
