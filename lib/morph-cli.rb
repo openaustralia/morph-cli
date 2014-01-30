@@ -31,15 +31,16 @@ module MorphCLI
     File.join(Dir.home, ".morph")
   end
 
-  def self.save_api_key(api_key)
-    configuration = {api_key: api_key}
-    File.open(config_path, "w") {|f| f.write configuration.to_yaml}
+  def self.save_config(config)
+    File.open(config_path, "w") {|f| f.write config.to_yaml}
     File.chmod(0600, config_path)
   end
 
-  def self.retrieve_api_key
+  def self.load_config
     if File.exists?(config_path)
-      YAML.load(File.read(config_path))[:api_key]
+      YAML.load(File.read(config_path))
+    else
+      {}
     end
   end
 
