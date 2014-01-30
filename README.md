@@ -4,7 +4,7 @@
 
 Runs Morph scrapers from the commandline.
 
-Actually it will run them on Morph server identically to the real thing. That means not installing a bucket load of libraries
+Actually it will run them on the Morph server identically to the real thing. That means not installing a bucket load of libraries
 and bits and bobs that are already installed with the Morph scraper environments.
 
 To run a scraper in your local directory
@@ -14,6 +14,10 @@ To run a scraper in your local directory
 Yup, that's it.
 
 It runs the code that's there right now. It doesn't need to be checked into git or anything.
+
+For help
+
+    morph help
 
 ## Installation
 
