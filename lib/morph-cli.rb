@@ -1,6 +1,24 @@
 require "morph-cli/version"
 
 module MorphCLI
+  def self.execute(directory, api_key, development)
+    puts "Uploading and running..."
+    file = MorphCLI.create_tar(directory, MorphCLI.all_paths(directory))
+    result = RestClient.post("#{MorphCLI.base_url(development)}/run", :api_key => api_key, :code => file)
+    # Interpret each line separately as json
+    result.split("\n").each do |line|
+      a = JSON.parse(line)
+      if a["stream"] == "stdout"
+        s = $stdout
+      elsif a["stream"] == "stderr"
+        s = $stderr
+      else
+        raise "Unknown stream"
+      end
+      s.puts a["text"]
+    end
+  end
+  
   def self.base_url(development)
     if development
       "http://127.0.0.1:3000"

@@ -25,26 +25,12 @@ class MorphThor < Thor
     api_key_is_valid = false
     until api_key_is_valid
       begin
-        puts "Uploading and running..."
-        file = MorphCLI.create_tar(options[:directory], MorphCLI.all_paths(options[:directory]))
-        result = RestClient.post("#{MorphCLI.base_url(options[:dev])}/run", :api_key => api_key, :code => file)
+        MorphCLI.execute(options[:directory], api_key, options[:dev])
         api_key_is_valid = true
       rescue RestClient::Unauthorized
         puts "Your key isn't working. Let's try again."
         api_key = ask_and_save_api_key(options)
       end
-    end
-    # Interpret each line separately as json
-    result.split("\n").each do |line|
-      a = JSON.parse(line)
-      if a["stream"] == "stdout"
-        s = $stdout
-      elsif a["stream"] == "stderr"
-        s = $stderr
-      else
-        raise "Unknown stream"
-      end
-      s.puts a["text"]
     end
   end
 
