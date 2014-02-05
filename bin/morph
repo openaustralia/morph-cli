@@ -44,6 +44,12 @@ class MorphThor < Thor
     end
   end
 
+  desc "version", "Show Morph version number and quit"
+  def version
+    puts "Morph CLI #{MorphCLI::VERSION}"
+    exit
+  end
+
   no_commands {
     def ask_and_save_api_key(env_config, config)
       env_config[:api_key] = ask("What is your key? (Go to #{env_config[:base_url]}/settings)")
