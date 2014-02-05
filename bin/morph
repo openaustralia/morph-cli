@@ -11,7 +11,7 @@ require 'json'
 require 'morph-cli'
 
 class MorphThor < Thor
-  class_option :dev, default: false, type: :boolean, desc: "Run against a local dev of Morph"
+  class_option :dev, default: false, type: :boolean, desc: "Run against development Morph (for morph developers)"
 
   desc "[execute]", "execute morph scraper"
   option :directory, :default => Dir.getwd
