@@ -27,11 +27,9 @@ You'll need Ruby >= 1.9 and then
 
 ## Limitations
 
-It doesn't currently stream the console output from the Morph server so you have to wait until the scraper has finished running before you see the output. I want to add streaming as soon as possible because it will make this a whole lot more responsive and usable.
-
 It uploads your code everytime. So if it's big it might take a little while. Scrapers are not usually so I'm hoping this won't really be an issue
 
-It doesn't yet return you the resulting sqlite database.
+It doesn't yet return you the resulting sqlite database (or use the one you might have locally)
 
 ## Contributing
 
