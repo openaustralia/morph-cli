@@ -4,19 +4,23 @@ module MorphCLI
   def self.execute(directory, development, env_config)
     puts "Uploading and running..."
     file = MorphCLI.create_tar(directory, MorphCLI.all_paths(directory))
-    result = RestClient.post("#{env_config[:base_url]}/run", :api_key => env_config[:api_key], :code => file)
-    # Interpret each line separately as json
-    result.split("\n").each do |line|
-      a = JSON.parse(line)
-      if a["stream"] == "stdout"
-        s = $stdout
-      elsif a["stream"] == "stderr"
-        s = $stderr
-      else
-        raise "Unknown stream"
+    block = Proc.new do |http_response|
+      http_response.read_body do |line|
+        unless line.empty?
+          a = JSON.parse(line)
+          if a["stream"] == "stdout"
+            s = $stdout
+          elsif a["stream"] == "stderr"
+            s = $stderr
+          else
+            raise "Unknown stream"
+          end
+          s.puts a["text"]
+        end
       end
-      s.puts a["text"]
     end
+    result = RestClient::Request.execute(:method => :post, :url => "#{env_config[:base_url]}/run",
+      :payload => {:api_key => env_config[:api_key], :code => file}, :block_response => block)
   end
   
   def self.config_path
