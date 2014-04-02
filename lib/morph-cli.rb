@@ -9,7 +9,6 @@ module MorphCLI
       if http_response.code == "200"
         http_response.read_body do |line|
           unless line.empty?
-            p line
             a = JSON.parse(line)
             if a["stream"] == "stdout"
               s = $stdout
