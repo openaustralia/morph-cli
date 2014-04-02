@@ -29,7 +29,7 @@ module MorphCLI
     result = RestClient::Request.execute(:method => :post, :url => "#{env_config[:base_url]}/run",
       :payload => {:api_key => env_config[:api_key], :code => file}, :block_response => block)
   end
-  
+
   def self.config_path
     File.join(Dir.home, ".morph")
   end
@@ -91,7 +91,7 @@ module MorphCLI
         end
       else
         result << Pathname.new(path).relative_path_from(Pathname.new(directory)).to_s
-      end      
+      end
     end
     result
   end
