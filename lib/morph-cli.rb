@@ -6,18 +6,24 @@ module MorphCLI
     puts "Uploading and running..."
     file = MorphCLI.create_tar(directory, MorphCLI.all_paths(directory))
     block = Proc.new do |http_response|
-      http_response.read_body do |line|
-        unless line.empty?
-          a = JSON.parse(line)
-          if a["stream"] == "stdout"
-            s = $stdout
-          elsif a["stream"] == "stderr"
-            s = $stderr
-          else
-            raise "Unknown stream"
+      if http_response.code == "200"
+        http_response.read_body do |line|
+          unless line.empty?
+            p line
+            a = JSON.parse(line)
+            if a["stream"] == "stdout"
+              s = $stdout
+            elsif a["stream"] == "stderr"
+              s = $stderr
+            else
+              raise "Unknown stream"
+            end
+            s.puts a["text"]
           end
-          s.puts a["text"]
         end
+      else
+        puts http_response.body
+        exit(1)
       end
     end
     result = RestClient::Request.execute(:method => :post, :url => "#{env_config[:base_url]}/run",
