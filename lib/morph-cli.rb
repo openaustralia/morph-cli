@@ -21,6 +21,8 @@ module MorphCLI
             s.puts a["text"]
           end
         end
+      elsif http_response.code == "401"
+        raise RestClient::Unauthorized
       else
         puts http_response.body
         exit(1)
