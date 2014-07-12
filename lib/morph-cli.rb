@@ -24,6 +24,7 @@ module MorphCLI
       end
     end
     result = RestClient::Request.execute(:method => :post, :url => "#{env_config[:base_url]}/run",
+      :headers => {:accept_encoding => 'identity'},
       :payload => {:api_key => env_config[:api_key], :code => file}, :block_response => block)
   end
 
