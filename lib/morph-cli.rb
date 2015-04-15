@@ -30,13 +30,15 @@ module MorphCLI
   def self.log(line)
     unless line.empty?
       a = JSON.parse(line)
-      if a["stream"] == "stdout"
-        s = $stdout
-      elsif a["stream"] == "stderr"
-        s = $stderr
+      s = case a["stream"]
+      when "stdout", "internalout"
+        $stdout
+      when "stderr"
+        $stderr
       else
         raise "Unknown stream"
       end
+
       s.puts a["text"]
     end
   end
