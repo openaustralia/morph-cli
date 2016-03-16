@@ -23,8 +23,16 @@ module MorphCLI
         exit(1)
       end
     end
+    if env_config.key?(:timeout)
+      timeout = env_config[:timeout]
+    else
+      timeout = 600 # 10 minutes should be "enough for everyone", right?
+                    # Setting to nil will disable the timeout entirely.
+                    # Default is 60 seconds.
+    end
     result = RestClient::Request.execute(:method => :post, :url => "#{env_config[:base_url]}/run",
-      :payload => {:api_key => env_config[:api_key], :code => file}, :block_response => block)
+      :payload => {:api_key => env_config[:api_key], :code => file}, :block_response => block,
+      :timeout => timeout)
   end
 
   def self.log(line)
