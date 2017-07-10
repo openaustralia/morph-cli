@@ -1,5 +1,6 @@
 require "morph-cli/version"
 require 'yaml'
+require 'find'
 
 module MorphCLI
   def self.execute(directory, development, env_config)
