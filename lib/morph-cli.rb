@@ -4,8 +4,15 @@ require 'find'
 
 module MorphCLI
   def self.execute(directory, development, env_config)
+    all_paths = MorphCLI.all_paths(directory)
+
+    if !all_paths.find{ |file| /scraper\.[\S]+$/ =~ file }
+      $stderr.puts "Can't find scraper to upload. Expected to find a file called scraper.rb, scraper.php, scraper.py, scraper.pl, scraper.js, etc to upload"
+      exit(1)
+    end
+
     puts "Uploading and running..."
-    file = MorphCLI.create_tar(directory, MorphCLI.all_paths(directory))
+    file = MorphCLI.create_tar(directory, all_paths)
     buffer = ""
     block = Proc.new do |http_response|
       if http_response.code == "200"
