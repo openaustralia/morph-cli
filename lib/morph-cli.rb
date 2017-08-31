@@ -6,6 +6,12 @@ require 'filesize'
 module MorphCLI
   def self.execute(directory, development, env_config)
     all_paths = MorphCLI.all_paths(directory)
+
+    if !all_paths.find{ |file| /scraper\.[\S]+$/ =~ file }
+      $stderr.puts "Can't find scraper to upload. Expected to find a file called scraper.rb, scraper.php, scraper.py, scraper.pl, scraper.js, etc to upload"
+      exit(1)
+    end
+
     size = MorphCLI.get_dir_size(directory, all_paths)
     puts "Uploading #{size}..."
 
