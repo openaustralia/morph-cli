@@ -1,6 +1,7 @@
 require "morph-cli/version"
 require 'yaml'
 require 'find'
+require 'filesize'
 
 module MorphCLI
   def self.execute(directory, development, env_config)
@@ -11,7 +12,9 @@ module MorphCLI
       exit(1)
     end
 
-    puts "Uploading and running..."
+    size = MorphCLI.get_dir_size(directory, all_paths)
+    puts "Uploading #{size}..."
+
     file = MorphCLI.create_tar(directory, all_paths)
     buffer = ""
     block = Proc.new do |http_response|
@@ -107,6 +110,14 @@ module MorphCLI
       end
     end
     File.new('/tmp/out', 'r')
+  end
+
+  def self.get_dir_size(directory, paths)
+    size = 0
+    in_directory(directory) do
+      paths.each { |entry| size += File.size(entry) }
+    end
+    Filesize.from("#{size} B").pretty
   end
 
   # Relative paths to all the files in the given directory (recursive)
