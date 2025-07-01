@@ -4,11 +4,11 @@ require 'find'
 require 'filesize'
 
 module MorphCLI
-  def self.execute(directory, development, env_config)
+  def self.execute(directory, _development, env_config)
     all_paths = MorphCLI.all_paths(directory)
 
-    if !all_paths.find{ |file| /scraper\.[\S]+$/ =~ file }
-      $stderr.puts "Can't find scraper to upload. Expected to find a file called scraper.rb, scraper.php, scraper.py, scraper.pl, scraper.js, etc to upload"
+    unless all_paths.find { |file| /scraper\.[\S]+$/ =~ file }
+      warn "Can't find scraper to upload. Expected to find a file called scraper.rb, scraper.php, scraper.py, scraper.pl, scraper.js, etc to upload"
       exit(1)
     end
 
@@ -17,7 +17,7 @@ module MorphCLI
 
     file = MorphCLI.create_tar(directory, all_paths)
     buffer = ""
-    block = Proc.new do |http_response|
+    block = proc do |http_response|
       if http_response.code == "200"
         http_response.read_body do |line|
           before, match, after = line.rpartition("\n")
@@ -34,32 +34,32 @@ module MorphCLI
         exit(1)
       end
     end
-    if env_config.key?(:timeout)
-      timeout = env_config[:timeout]
-    else
-      timeout = 600 # 10 minutes should be "enough for everyone", right?
-                    # Setting to nil will disable the timeout entirely.
-                    # Default is 60 seconds.
-    end
-    result = RestClient::Request.execute(:method => :post, :url => "#{env_config[:base_url]}/run",
-      :payload => {:api_key => env_config[:api_key], :code => file}, :block_response => block,
-      :timeout => timeout)
+    timeout = if env_config.key?(:timeout)
+                env_config[:timeout]
+              else
+                600 # 10 minutes should be "enough for everyone", right?
+                # Setting to nil will disable the timeout entirely.
+                # Default is 60 seconds.
+              end
+    RestClient::Request.execute(method: :post, url: "#{env_config[:base_url]}/run",
+                                payload: { api_key: env_config[:api_key], code: file }, block_response: block,
+                                timeout: timeout)
   end
 
   def self.log(line)
-    unless line.empty?
-      a = JSON.parse(line)
-      s = case a["stream"]
-      when "stdout", "internalout"
-        $stdout
-      when "stderr"
-        $stderr
-      else
-        raise "Unknown stream"
-      end
+    return if line.empty?
 
-      s.puts a["text"]
-    end
+    a = JSON.parse(line)
+    s = case a["stream"]
+        when "stdout", "internalout"
+          $stdout
+        when "stderr"
+          $stderr
+        else
+          raise "Unknown stream"
+        end
+
+    s.puts a["text"]
   end
 
   def self.config_path
@@ -67,22 +67,22 @@ module MorphCLI
   end
 
   def self.save_config(config)
-    File.open(config_path, "w") {|f| f.write config.to_yaml}
-    File.chmod(0600, config_path)
+    File.write(config_path, config.to_yaml)
+    File.chmod(0o600, config_path)
   end
 
   DEFAULT_CONFIG = {
     development: {
       base_url: "http://127.0.0.1:3000"
     },
-    production: {
+    production:  {
       base_url: "https://morph.io"
     }
   }
 
   def self.load_config
-    if File.exists?(config_path)
-      YAML.load(File.read(config_path))
+    if File.exist?(config_path)
+      YAML.load_file(config_path)
     else
       DEFAULT_CONFIG
     end
@@ -97,17 +97,15 @@ module MorphCLI
   end
 
   def self.create_tar(directory, paths)
-    tempfile = File.new('/tmp/out', 'wb')
+    File.new('/tmp/out', 'wb')
 
     in_directory(directory) do
-      begin
-        tar = Archive::Tar::Minitar::Output.new("/tmp/out")
-        paths.each do |entry|
-          Archive::Tar::Minitar.pack_file(entry, tar)
-        end
-      ensure
-        tar.close
+      tar = Archive::Tar::Minitar::Output.new("/tmp/out")
+      paths.each do |entry|
+        Archive::Tar::Minitar.pack_file(entry, tar)
       end
+    ensure
+      tar.close
     end
     File.new('/tmp/out', 'r')
   end
@@ -126,9 +124,7 @@ module MorphCLI
     result = []
     Find.find(directory) do |path|
       if FileTest.directory?(path)
-        if File.basename(path)[0] == ?.
-          Find.prune
-        end
+        Find.prune if File.basename(path)[0] == '.'
       else
         result << Pathname.new(path).relative_path_from(Pathname.new(directory)).to_s
       end
@@ -139,6 +135,6 @@ module MorphCLI
   # Relative path of database file (if it exists)
   def self.database_path(directory)
     path = "data.sqlite"
-    path if File.exists?(File.join(directory, path))
+    path if File.exist?(File.join(directory, path))
   end
 end

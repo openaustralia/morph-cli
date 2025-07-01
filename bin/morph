@@ -3,8 +3,8 @@
 
 require "thor"
 require "rest_client"
-# TODO Do compression on the tar file
-#require 'zlib'
+# TODO: Do compression on the tar file
+# require 'zlib'
 require 'archive/tar/minitar'
 require 'pathname'
 require 'json'
@@ -14,15 +14,15 @@ class MorphThor < Thor
   class_option :dev, default: false, type: :boolean, desc: "Run against development Morph (for morph developers)"
 
   desc "[execute]", "execute morph scraper"
-  option :directory, :default => Dir.getwd
+  option :directory, default: Dir.getwd
 
   def execute
     config = MorphCLI.load_config
-    if options[:dev]
-      env_config = config[:development]
-    else
-      env_config = config[:production]
-    end
+    env_config = if options[:dev]
+                   config[:development]
+                 else
+                   config[:production]
+                 end
 
     config = ask_and_save_api_key(env_config, config) if env_config[:api_key].nil?
 
@@ -35,11 +35,11 @@ class MorphThor < Thor
         puts "Your key isn't working. Let's try again."
         config = ask_and_save_api_key(env_config, config)
       rescue Errno::ECONNREFUSED => e
-        $stderr.puts "Morph doesn't look to be running at #{env_config[:base_url]} (#{e})"
+        warn "Morph doesn't look to be running at #{env_config[:base_url]} (#{e})"
         exit(1)
       rescue RestClient::InternalServerError => e
-        $stderr.puts "Uh oh. Something has gone wrong on the Morph server at #{env_config[:base_url]} (#{e})"
-        exit(1)        
+        warn "Uh oh. Something has gone wrong on the Morph server at #{env_config[:base_url]} (#{e})"
+        exit(1)
       end
     end
   end
@@ -50,13 +50,13 @@ class MorphThor < Thor
     exit
   end
 
-  no_commands {
+  no_commands do
     def ask_and_save_api_key(env_config, config)
       env_config[:api_key] = ask("What is your key? (Go to #{env_config[:base_url]}/settings)")
       MorphCLI.save_config(config)
       config
     end
-  }
+  end
 end
 
 # If morph is run without any parameters it's the same as "morph execute"
