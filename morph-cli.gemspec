@@ -23,7 +23,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'archive-tar-minitar'
   spec.add_dependency "filesize", ">= 0.1"
 
-  spec.add_development_dependency "bundler", "~> 1.3"
+  spec.add_development_dependency "bundler", "~> 2.0"
   spec.add_development_dependency "rake"
 
   spec.executables   = %w(morph)
