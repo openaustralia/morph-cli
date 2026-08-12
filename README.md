@@ -1,5 +1,5 @@
 [![Gem Version](https://badge.fury.io/rb/morph-cli.png)](http://badge.fury.io/rb/morph-cli)
-[![CI](https://github.com/openaustralia/morph-cli/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/openaustralia/morph-cli/actions/workflows/ci.yml)
+[![CI](https://github.com/openaustralia/morph-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/openaustralia/morph-cli/actions/workflows/ci.yml)
 
 # Morph Commandline
 
