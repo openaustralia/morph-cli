@@ -39,7 +39,10 @@ jobs:
         run: |
           version=$(ruby -Ilib -r morph-cli/version -e 'puts MorphCLI::VERSION')
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          published=$(curl -fsS "https://rubygems.org/api/v1/versions/morph-cli.json" | jq -r '.[].number')
+          # A 404 means the gem has never been published; treat that as "no
+          # versions published". Duplicate pushes are also rejected by
+          # rubygems.org itself, so this check failing open is still safe.
+          published=$(curl -fsS "https://rubygems.org/api/v1/versions/morph-cli.json" | jq -r '.[].number' || true)
           if echo "$published" | grep -Fxq "$version"; then
             echo "morph-cli $version is already on rubygems.org; nothing to do"
             echo "release=false" >> "$GITHUB_OUTPUT"
