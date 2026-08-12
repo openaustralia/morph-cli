@@ -1,30 +1,26 @@
-# coding: utf-8
-lib = File.expand_path('../lib', __FILE__)
+lib = File.expand_path("lib", __dir__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'morph-cli/version'
+require "morph-cli/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "morph-cli"
   spec.version       = MorphCLI::VERSION
   spec.authors       = ["Matthew Landauer"]
   spec.email         = ["matthew@oaf.org.au"]
-  spec.description   = %q{Command line interface for Morph}
-  spec.summary       = %q{Command line interface for Morph}
+  spec.description   = "Command line interface for Morph"
+  spec.summary       = "Command line interface for Morph"
   spec.homepage      = ""
   spec.license       = "MIT"
 
-  spec.files         = `git ls-files`.split($/)
-  spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
-  spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
+  spec.required_ruby_version = ">= 3.3"
+
+  spec.files         = `git ls-files`.split($INPUT_RECORD_SEPARATOR)
+  spec.executables   = %w[morph]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "thor", "> 0.17"
-  spec.add_dependency "rest-client"
-  spec.add_dependency 'archive-tar-minitar'
-  spec.add_dependency "filesize", ">= 0.1"
-
-  spec.add_development_dependency "bundler", "~> 2.0"
-  spec.add_development_dependency "rake"
-
-  spec.executables   = %w(morph)
+  spec.add_dependency "faraday", "~> 2.0"
+  spec.add_dependency "faraday-multipart", "~> 1.0"
+  spec.add_dependency "filesize", "~> 0.2"
+  spec.add_dependency "minitar", "~> 1.0"
+  spec.add_dependency "thor", "~> 1.0"
 end
