@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = ""
   spec.license       = "MIT"
 
-  spec.required_ruby_version = ">= 3.3"
+  spec.required_ruby_version = ">= 3.2"
 
   spec.files         = `git ls-files`.split($INPUT_RECORD_SEPARATOR)
   spec.executables   = %w[morph]
