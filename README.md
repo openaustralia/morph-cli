@@ -11,7 +11,7 @@ already installed with the morph.io scraper environments.
 
 ## Installation
 
-You'll need Ruby 3.3 or later. Then
+You'll need Ruby 3.2 or later. Then
 
     gem install morph-cli
 
