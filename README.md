@@ -61,6 +61,44 @@ and our contributor licence agreement.
 4. Push to the branch (`git push origin feature/my-new-feature`)
 5. Create a new pull request
 
+## Releasing a new version
+
+Releases are published to [rubygems.org](https://rubygems.org/gems/morph-cli)
+automatically by the [release workflow](.github/workflows/release.yml) using
+[RubyGems trusted publishing](https://guides.rubygems.org/trusted-publishing/)
+— no API keys involved. A version bump merged to `main` results in a published
+gem. To release:
+
+1. Create a branch off `main`.
+2. Bump the version number in `lib/morph-cli/version.rb`, following
+   [Semantic Versioning](https://semver.org).
+3. Move the relevant entries in `CHANGELOG.md` from "Unreleased" into a new
+   section for the version.
+4. Commit (signed off), open a pull request and get it reviewed and merged as
+   usual.
+5. On merge to `main`, the release workflow checks whether that version is
+   already on rubygems.org. If it isn't, it builds the gem, creates and pushes
+   the `vX.Y.Z` git tag, and publishes the gem. If the version is already
+   published the workflow does nothing, so it is safe to merge non-version
+   changes at any time.
+
+### One-time trusted publishing setup (gem owners)
+
+Before the release workflow can publish, a gem owner needs to configure a
+trusted publisher for morph-cli on rubygems.org (once only):
+
+1. Sign in to rubygems.org and go to the
+   [morph-cli trusted publishers settings](https://rubygems.org/gems/morph-cli/trusted_publishers)
+   (Gem page → Ownership → Trusted publishers).
+2. Create a new **GitHub Actions** trusted publisher with:
+   - **Repository owner:** `openaustralia`
+   - **Repository name:** `morph-cli`
+   - **Workflow filename:** `release.yml`
+   - **Environment:** `rubygems`
+3. In this GitHub repository, create the matching environment: Settings →
+   Environments → New environment → name it `rubygems`. Optionally add
+   required reviewers there to gate publishing behind a manual approval.
+
 ## License
 
 The gem is available as open source under the terms of the
