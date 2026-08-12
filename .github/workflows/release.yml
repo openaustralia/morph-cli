@@ -67,7 +67,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: "3.2"
           bundler-cache: true
       - name: Release gem v${{ needs.check.outputs.version }}
         uses: rubygems/release-gem@v1
