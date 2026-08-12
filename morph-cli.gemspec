@@ -7,12 +7,22 @@ Gem::Specification.new do |spec|
   spec.version       = MorphCLI::VERSION
   spec.authors       = ["Matthew Landauer"]
   spec.email         = ["matthew@oaf.org.au"]
-  spec.description   = "Command line interface for Morph"
-  spec.summary       = "Command line interface for Morph"
-  spec.homepage      = ""
+  spec.summary       = "Run morph.io scrapers from the command line"
+  spec.description   = "Command line interface for morph.io. Uploads the scraper in the " \
+                       "current directory to a morph.io server, runs it there and streams " \
+                       "the output back to your terminal."
+  spec.homepage      = "https://github.com/openaustralia/morph-cli"
   spec.license       = "MIT"
 
   spec.required_ruby_version = ">= 3.2"
+
+  spec.metadata = {
+    "homepage_uri" => "https://github.com/openaustralia/morph-cli",
+    "source_code_uri" => "https://github.com/openaustralia/morph-cli",
+    "bug_tracker_uri" => "https://github.com/openaustralia/morph-cli/issues",
+    "changelog_uri" => "https://github.com/openaustralia/morph-cli/blob/main/CHANGELOG.md",
+    "rubygems_mfa_required" => "true"
+  }
 
   spec.files         = `git ls-files`.split($INPUT_RECORD_SEPARATOR)
   spec.executables   = %w[morph]
