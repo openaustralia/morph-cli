@@ -120,7 +120,7 @@ module MorphCLI
     ensure
       # Writes the tar trailer and flushes without closing the underlying
       # tempfile, so the returned handle stays open for reading.
-      output.tar.close
+      output.tar.close if output
     end
 
     tempfile.flush
