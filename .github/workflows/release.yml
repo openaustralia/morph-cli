@@ -1,0 +1,73 @@
+name: Release
+
+# Publishes the gem to rubygems.org via trusted publishing (OIDC) whenever a
+# version bump lands on main. The check job guards against republishing a
+# version that is already on rubygems.org, so merges that don't change the
+# version (or reverts) are a no-op.
+#
+# One-time setup required on rubygems.org before this workflow can publish —
+# see "Releasing a new version" in the README.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/morph-cli/version.rb"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check if version needs publishing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.check.outputs.release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Compare version against rubygems.org
+        id: check
+        run: |
+          version=$(ruby -Ilib -r morph-cli/version -e 'puts MorphCLI::VERSION')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A 404 means the gem has never been published; treat that as "no
+          # versions published". Duplicate pushes are also rejected by
+          # rubygems.org itself, so this check failing open is still safe.
+          published=$(curl -fsS "https://rubygems.org/api/v1/versions/morph-cli.json" | jq -r '.[].number' || true)
+          if echo "$published" | grep -Fxq "$version"; then
+            echo "morph-cli $version is already on rubygems.org; nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "morph-cli $version is not yet published; releasing"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Publish to RubyGems
+    needs: check
+    if: needs.check.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      id-token: write # mandatory for RubyGems trusted publishing
+      contents: write # required for `rake release` to push the release tag
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: Release gem v${{ needs.check.outputs.version }}
+        uses: rubygems/release-gem@v1
