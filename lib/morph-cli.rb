@@ -1,7 +1,14 @@
 require "morph-cli/version"
 require 'yaml'
 require 'find'
+require 'json'
+require 'pathname'
+require 'tempfile'
+require 'fileutils'
 require 'filesize'
+require 'faraday'
+require 'faraday/multipart'
+require 'minitar'
 
 module MorphCLI
   def self.execute(directory, _development, env_config)
@@ -16,24 +23,7 @@ module MorphCLI
     puts "Uploading #{size}..."
 
     file = MorphCLI.create_tar(directory, all_paths)
-    buffer = ""
-    block = proc do |http_response|
-      if http_response.code == "200"
-        http_response.read_body do |line|
-          before, match, after = line.rpartition("\n")
-          buffer += before + match
-          buffer.split("\n").each do |l|
-            log(l)
-          end
-          buffer = after
-        end
-      elsif http_response.code == "401"
-        raise RestClient::Unauthorized
-      else
-        puts http_response.body
-        exit(1)
-      end
-    end
+
     timeout = if env_config.key?(:timeout)
                 env_config[:timeout]
               else
@@ -41,9 +31,29 @@ module MorphCLI
                 # Setting to nil will disable the timeout entirely.
                 # Default is 60 seconds.
               end
-    RestClient::Request.execute(method: :post, url: "#{env_config[:base_url]}/run",
-                                payload: { api_key: env_config[:api_key], code: file }, block_response: block,
-                                timeout: timeout)
+
+    connection = Faraday.new(url: env_config[:base_url]) do |f|
+      f.request :multipart
+      f.response :raise_error
+      f.adapter Faraday.default_adapter
+    end
+
+    buffer = +""
+    connection.post("/run") do |req|
+      req.body = {
+        api_key: env_config[:api_key],
+        code: Faraday::Multipart::FilePart.new(file, "application/octet-stream")
+      }
+      req.options.timeout = timeout
+      req.options.on_data = proc do |chunk, _overall_received_bytes, env|
+        next unless env.status == 200
+
+        before, match, after = chunk.rpartition("\n")
+        buffer << before << match
+        buffer.split("\n").each { |l| log(l) }
+        buffer = after
+      end
+    end
   end
 
   def self.log(line)
@@ -82,7 +92,7 @@ module MorphCLI
 
   def self.load_config
     if File.exist?(config_path)
-      YAML.load_file(config_path)
+      YAML.safe_load_file(config_path, permitted_classes: [Symbol])
     else
       DEFAULT_CONFIG
     end
@@ -96,18 +106,26 @@ module MorphCLI
     FileUtils.cd(cwd)
   end
 
+  # Packs the given paths (relative to directory) into a tar file and returns
+  # an open, rewound file handle ready for upload.
   def self.create_tar(directory, paths)
-    File.new('/tmp/out', 'wb')
+    tempfile = Tempfile.new(["morph", ".tar"])
+    tempfile.binmode
 
     in_directory(directory) do
-      tar = Archive::Tar::Minitar::Output.new("/tmp/out")
+      output = Minitar::Output.new(tempfile)
       paths.each do |entry|
-        Archive::Tar::Minitar.pack_file(entry, tar)
+        Minitar.pack_file(entry, output)
       end
     ensure
-      tar.close
+      # Writes the tar trailer and flushes without closing the underlying
+      # tempfile, so the returned handle stays open for reading.
+      output&.tar&.close
     end
-    File.new('/tmp/out', 'r')
+
+    tempfile.flush
+    tempfile.rewind
+    tempfile
   end
 
   def self.get_dir_size(directory, paths)

@@ -2,12 +2,8 @@
 # Commandline client for controlling morph and running scrapers and things
 
 require "thor"
-require "rest_client"
 # TODO: Do compression on the tar file
 # require 'zlib'
-require 'archive/tar/minitar'
-require 'pathname'
-require 'json'
 require 'morph-cli'
 
 class MorphThor < Thor
@@ -31,14 +27,17 @@ class MorphThor < Thor
       begin
         MorphCLI.execute(options[:directory], options[:dev], env_config)
         api_key_is_valid = true
-      rescue RestClient::Unauthorized
+      rescue Faraday::UnauthorizedError
         puts "Your key isn't working. Let's try again."
         config = ask_and_save_api_key(env_config, config)
-      rescue Errno::ECONNREFUSED => e
+      rescue Faraday::ConnectionFailed => e
         warn "Morph doesn't look to be running at #{env_config[:base_url]} (#{e})"
         exit(1)
-      rescue RestClient::InternalServerError => e
+      rescue Faraday::ServerError => e
         warn "Uh oh. Something has gone wrong on the Morph server at #{env_config[:base_url]} (#{e})"
+        exit(1)
+      rescue Faraday::Error => e
+        warn "Request to #{env_config[:base_url]} failed (#{e})"
         exit(1)
       end
     end
