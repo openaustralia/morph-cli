@@ -30,10 +30,13 @@ command-line familiarity.
   back with `YAML.safe_load_file(..., permitted_classes: [Symbol])`. Never echo
   its contents, paste them into an issue, or use a real key in a spec or
   fixture. Use an obvious placeholder.
-- **The upload includes every file in the directory** that isn't under a
-  directory starting with `.`, so `.git` is skipped but anything else the
-  person happens to have sitting there is not, including `data.sqlite`. Bear
-  that in mind before changing `all_paths`.
+- **The upload includes almost everything in the directory, dot-files
+  included.** `all_paths` prunes directories whose name starts with `.`, so
+  `.git` and `.bundle` are skipped, but a dot-*file* is not a directory and so
+  gets packed: a top-level `.env` is uploaded, as is `data.sqlite` and anything
+  else the person happens to have sitting there. Keep that distinction in mind
+  before changing `all_paths`, and don't describe the behaviour as "skips
+  hidden files", because it doesn't.
 - **The server streams newline-delimited JSON, not plain text.** Each line has
   a `stream` (`stdout`, `internalout` or `stderr`) and `text`, and `log` raises
   on any other stream value. Partial chunks are buffered on the newline, so
