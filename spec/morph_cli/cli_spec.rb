@@ -30,7 +30,16 @@ RSpec.describe MorphCLI::CLI do
       described_class.start(['execute', '--directory', '/somewhere'])
 
       expect(MorphCLI).to have_received(:execute)
-        .with('/somewhere', false, config[:production])
+        .with('/somewhere', false, config[:production], skip_data: false)
+    end
+
+    it 'leaves the database out when --skip-data is given' do
+      allow(MorphCLI).to receive(:execute)
+
+      described_class.start(['execute', '--skip-data'])
+
+      expect(MorphCLI).to have_received(:execute)
+        .with(anything, false, config[:production], skip_data: true)
     end
 
     it 'runs the scraper with the development config when --dev is given' do
@@ -39,7 +48,7 @@ RSpec.describe MorphCLI::CLI do
       described_class.start(['execute', '--dev'])
 
       expect(MorphCLI).to have_received(:execute)
-        .with(anything, true, config[:development])
+        .with(anything, true, config[:development], skip_data: false)
     end
 
     it 'asks for an API key and saves the config when none is set' do
@@ -54,7 +63,7 @@ RSpec.describe MorphCLI::CLI do
       expect(config[:production][:api_key]).to eq('shiny-new-key')
       expect(MorphCLI).to have_received(:save_config).with(config)
       expect(MorphCLI).to have_received(:execute)
-        .with(anything, false, config[:production])
+        .with(anything, false, config[:production], skip_data: false)
     end
 
     it 'asks for a new API key and retries when the server rejects it' do

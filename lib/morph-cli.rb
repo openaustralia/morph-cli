@@ -7,12 +7,13 @@ require 'pathname'
 require 'tempfile'
 require 'fileutils'
 require 'filesize'
+require 'zlib'
 require 'faraday'
 require 'faraday/multipart'
 require 'minitar'
 
 module MorphCLI
-  def self.execute(directory, _development, env_config)
+  def self.execute(directory, _development, env_config, skip_data: false)
     all_paths = MorphCLI.all_paths(directory)
 
     unless all_paths.find { |file| /scraper\.[\S]+$/ =~ file }
@@ -20,18 +21,16 @@ module MorphCLI
       exit(1)
     end
 
+    database_path = MorphCLI.database_path(directory)
+    if skip_data
+      all_paths.delete(database_path)
+      database_path = nil
+    end
+
     size = MorphCLI.get_dir_size(directory, all_paths)
-    puts "Uploading #{size}..."
+    puts "Uploading #{size}#{" (including #{database_path})" if database_path}..."
 
     file = MorphCLI.create_tar(directory, all_paths)
-
-    timeout = if env_config.key?(:timeout)
-                env_config[:timeout]
-              else
-                600 # 10 minutes should be "enough for everyone", right?
-                # Setting to nil will disable the timeout entirely.
-                # Default is 60 seconds.
-              end
 
     connection = Faraday.new(url: env_config[:base_url]) do |f|
       f.request :multipart
@@ -43,9 +42,12 @@ module MorphCLI
     connection.post("/run") do |req|
       req.body = {
         api_key: env_config[:api_key],
-        code: Faraday::Multipart::FilePart.new(file, "application/octet-stream")
+        code: Faraday::Multipart::FilePart.new(file, "application/gzip")
       }
-      req.options.timeout = timeout
+      # 10 minutes should be "enough for everyone", right?
+      # Setting :timeout to nil in the config will disable the timeout
+      # entirely. The Faraday default is 60 seconds.
+      req.options.timeout = env_config.fetch(:timeout, 600)
       req.options.on_data = proc do |chunk, _overall_received_bytes, env|
         next unless env.status == 200
 
@@ -147,21 +149,22 @@ module MorphCLI
     FileUtils.cd(cwd)
   end
 
-  # Packs the given paths (relative to directory) into a tar file and returns
-  # an open, rewound file handle ready for upload.
+  # Packs the given paths (relative to directory) into a gzip-compressed tar
+  # file and returns an open, rewound file handle ready for upload.
   def self.create_tar(directory, paths)
-    tempfile = Tempfile.new(["morph", ".tar"])
+    tempfile = Tempfile.new(["morph", ".tar.gz"])
     tempfile.binmode
 
     in_directory(directory) do
-      output = Minitar::Output.new(tempfile)
-      paths.each do |entry|
-        Minitar.pack_file(entry, output)
-      end
+      gzip = Zlib::GzipWriter.new(tempfile)
+      output = Minitar::Output.new(gzip)
+      paths.each { |entry| Minitar.pack_file(entry, output) }
     ensure
-      # Writes the tar trailer and flushes without closing the underlying
-      # tempfile, so the returned handle stays open for reading.
+      # Closing the tar writer writes the tar trailer; finishing (not
+      # closing) the gzip stream writes the gzip trailer, leaving the
+      # underlying tempfile handle open for reading.
       output&.tar&.close
+      gzip&.finish
     end
 
     tempfile.flush

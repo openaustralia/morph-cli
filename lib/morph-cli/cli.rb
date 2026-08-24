@@ -14,12 +14,14 @@ module MorphCLI
 
     desc '[execute]', 'execute morph scraper'
     option :directory, default: Dir.getwd
+    option :skip_data, default: false, type: :boolean,
+                       desc: "Don't upload the local data.sqlite database with the scraper"
 
     def execute
       env_config = load_env_config
 
       with_working_api_key(env_config) do
-        MorphCLI.execute(options[:directory], options[:dev], env_config)
+        MorphCLI.execute(options[:directory], options[:dev], env_config, skip_data: options[:skip_data])
       end
     end
 
