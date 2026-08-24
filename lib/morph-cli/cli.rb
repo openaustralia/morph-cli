@@ -18,33 +18,30 @@ module MorphCLI
                        desc: "Don't upload the local data.sqlite database with the scraper"
 
     def execute
-      config = MorphCLI.load_config
-      env_config = if options[:dev]
-                     config[:development]
-                   else
-                     config[:production]
-                   end
+      env_config = load_env_config
 
-      config = ask_and_save_api_key(env_config, config) if env_config[:api_key].nil?
+      with_working_api_key(env_config) do
+        MorphCLI.execute(options[:directory], options[:dev], env_config, skip_data: options[:skip_data])
+      end
+    end
 
-      api_key_is_valid = false
-      until api_key_is_valid
-        begin
-          MorphCLI.execute(options[:directory], options[:dev], env_config, skip_data: options[:skip_data])
-          api_key_is_valid = true
-        rescue Faraday::UnauthorizedError
-          puts "Your key isn't working. Let's try again."
-          config = ask_and_save_api_key(env_config, config)
-        rescue Faraday::ConnectionFailed => e
-          warn "Morph doesn't look to be running at #{env_config[:base_url]} (#{e})"
-          exit(1)
-        rescue Faraday::ServerError => e
-          warn "Uh oh. Something has gone wrong on the Morph server at #{env_config[:base_url]} (#{e})"
-          exit(1)
-        rescue Faraday::Error => e
-          warn "Request to #{env_config[:base_url]} failed (#{e})"
-          exit(1)
-        end
+    desc 'download [SCRAPER]', 'download the sqlite database of a scraper from morph'
+    option :directory, default: Dir.getwd
+
+    def download(scraper = nil)
+      env_config = load_env_config
+
+      scraper ||= MorphCLI.scraper_name(options[:directory])
+      if scraper.nil?
+        warn "Can't work out the scraper name from the git remote. Give it explicitly with: morph download OWNER/SCRAPER"
+        exit(1)
+      end
+
+      with_working_api_key(env_config) do
+        MorphCLI.download(options[:directory], env_config, scraper)
+      rescue Faraday::ResourceNotFound
+        warn "Can't find a database for #{scraper} on #{env_config[:base_url]}. Has the scraper run successfully?"
+        exit(1)
       end
     end
 
@@ -55,10 +52,41 @@ module MorphCLI
     end
 
     no_commands do
-      def ask_and_save_api_key(env_config, config)
+      def load_env_config
+        @config = MorphCLI.load_config
+        env_config = if options[:dev]
+                       @config[:development]
+                     else
+                       @config[:production]
+                     end
+
+        ask_and_save_api_key(env_config) if env_config[:api_key].nil?
+        env_config
+      end
+
+      # Runs the block, prompting for a new API key and retrying if the server
+      # rejects the current one, and turning other request failures into
+      # friendly errors
+      def with_working_api_key(env_config)
+        yield
+      rescue Faraday::UnauthorizedError
+        puts "Your key isn't working. Let's try again."
+        ask_and_save_api_key(env_config)
+        retry
+      rescue Faraday::ConnectionFailed => e
+        warn "Morph doesn't look to be running at #{env_config[:base_url]} (#{e})"
+        exit(1)
+      rescue Faraday::ServerError => e
+        warn "Uh oh. Something has gone wrong on the Morph server at #{env_config[:base_url]} (#{e})"
+        exit(1)
+      rescue Faraday::Error => e
+        warn "Request to #{env_config[:base_url]} failed (#{e})"
+        exit(1)
+      end
+
+      def ask_and_save_api_key(env_config)
         env_config[:api_key] = ask("What is your key? (Go to #{env_config[:base_url]}/settings)")
-        MorphCLI.save_config(config)
-        config
+        MorphCLI.save_config(@config)
       end
     end
   end

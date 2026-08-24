@@ -2,6 +2,7 @@ require "morph-cli/version"
 require 'yaml'
 require 'find'
 require 'json'
+require 'open3'
 require 'pathname'
 require 'tempfile'
 require 'fileutils'
@@ -21,17 +22,15 @@ module MorphCLI
     end
 
     database_path = MorphCLI.database_path(directory)
-    if skip_data
-      all_paths.delete(database_path)
-      database_path = nil
-    end
+    all_paths.delete(database_path)
+    database_path = nil if skip_data
 
-    size = MorphCLI.get_dir_size(directory, all_paths)
+    size = MorphCLI.get_dir_size(directory, all_paths + [database_path].compact)
     puts "Uploading #{size}#{" (including #{database_path})" if database_path}..."
 
     file = MorphCLI.create_tar(directory, all_paths)
 
-    scraper_output = run(file, env_config)
+    scraper_output = run(file, env_config, directory, database_path)
 
     puts "Scraper didn't output anything, but it ran successfully." unless scraper_output
   end
@@ -39,7 +38,7 @@ module MorphCLI
   # Uploads the code to the server, streams the run output to the local
   # stdout/stderr and returns whether the scraper itself wrote anything
   # to stdout or stderr
-  def self.run(file, env_config)
+  def self.run(file, env_config, directory, database_path)
     connection = Faraday.new(url: env_config[:base_url]) do |f|
       f.request :multipart
       f.response :raise_error
@@ -49,10 +48,18 @@ module MorphCLI
     buffer = +""
     scraper_output = false
     connection.post("/run") do |req|
-      req.body = {
+      body = {
         api_key: env_config[:api_key],
         code: Faraday::Multipart::FilePart.new(file, "application/gzip")
       }
+      if database_path
+        body[:database] = Faraday::Multipart::FilePart.new(
+          File.join(directory, database_path),
+          "application/octet-stream",
+          database_path
+        )
+      end
+      req.body = body
       # 10 minutes should be "enough for everyone", right?
       # Setting :timeout to nil in the config will disable the timeout
       # entirely. The Faraday default is 60 seconds.
@@ -70,6 +77,46 @@ module MorphCLI
       end
     end
     scraper_output
+  end
+
+  def self.download(directory, env_config, scraper)
+    connection = Faraday.new(url: env_config[:base_url]) do |f|
+      f.response :raise_error
+      f.adapter Faraday.default_adapter
+    end
+
+    # Download to a tempfile in the same directory first so a failed download
+    # doesn't clobber an existing database
+    tempfile = Tempfile.new(["morph", ".sqlite"], directory)
+    tempfile.binmode
+
+    begin
+      connection.get("/#{scraper}/data.sqlite") do |req|
+        req.params[:key] = env_config[:api_key]
+        req.options.timeout = env_config.fetch(:timeout, 600)
+        req.options.on_data = proc do |chunk, _overall_received_bytes, env|
+          tempfile.write(chunk) if env.status == 200
+        end
+      end
+
+      tempfile.close
+      File.rename(tempfile.path, File.join(directory, "data.sqlite"))
+    ensure
+      tempfile.close unless tempfile.closed?
+      FileUtils.rm_f(tempfile.path)
+    end
+
+    size = Filesize.from("#{File.size(File.join(directory, 'data.sqlite'))} B").pretty
+    puts "Saved #{size} to data.sqlite"
+  end
+
+  # The name of the scraper on morph (owner/name), worked out from the git
+  # remote of the given directory. Returns nil if it can't be worked out.
+  def self.scraper_name(directory)
+    url, _stderr, status = Open3.capture3("git", "-C", directory, "config", "--get", "remote.origin.url")
+    return nil unless status.success?
+
+    url.strip[%r{([^/:]+/[^/:]+?)(?:\.git)?\z}, 1]
   end
 
   # Writes the line to the local stdout/stderr and returns the name of the
