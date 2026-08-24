@@ -6,6 +6,7 @@ require 'pathname'
 require 'tempfile'
 require 'fileutils'
 require 'filesize'
+require 'zlib'
 require 'faraday'
 require 'faraday/multipart'
 require 'minitar'
@@ -40,7 +41,7 @@ module MorphCLI
     connection.post("/run") do |req|
       req.body = {
         api_key: env_config[:api_key],
-        code: Faraday::Multipart::FilePart.new(file, "application/octet-stream")
+        code: Faraday::Multipart::FilePart.new(file, "application/gzip")
       }
       # 10 minutes should be "enough for everyone", right?
       # Setting :timeout to nil in the config will disable the timeout
@@ -107,21 +108,22 @@ module MorphCLI
     FileUtils.cd(cwd)
   end
 
-  # Packs the given paths (relative to directory) into a tar file and returns
-  # an open, rewound file handle ready for upload.
+  # Packs the given paths (relative to directory) into a gzip-compressed tar
+  # file and returns an open, rewound file handle ready for upload.
   def self.create_tar(directory, paths)
-    tempfile = Tempfile.new(["morph", ".tar"])
+    tempfile = Tempfile.new(["morph", ".tar.gz"])
     tempfile.binmode
 
     in_directory(directory) do
-      output = Minitar::Output.new(tempfile)
-      paths.each do |entry|
-        Minitar.pack_file(entry, output)
-      end
+      gzip = Zlib::GzipWriter.new(tempfile)
+      output = Minitar::Output.new(gzip)
+      paths.each { |entry| Minitar.pack_file(entry, output) }
     ensure
-      # Writes the tar trailer and flushes without closing the underlying
-      # tempfile, so the returned handle stays open for reading.
+      # Closing the tar writer writes the tar trailer; finishing (not
+      # closing) the gzip stream writes the gzip trailer, leaving the
+      # underlying tempfile handle open for reading.
       output&.tar&.close
+      gzip&.finish
     end
 
     tempfile.flush
