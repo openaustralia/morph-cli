@@ -62,7 +62,7 @@ RSpec.describe MorphCLI do
       end
     end
 
-    it "posts the API key and the code as multipart form data" do
+    it "posts the API key and the gzipped code as multipart form data" do
       stub_request(:post, "https://morph.io/run").to_return(status: 200, body: "")
 
       with_scraper_directory do |dir|
@@ -73,7 +73,37 @@ RSpec.describe MorphCLI do
       expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
         req.headers["Content-Type"].start_with?("multipart/form-data") &&
           req.body.include?("secret-key") &&
-          req.body.include?("scraper.rb")
+          req.body.b.include?("\x1f\x8b".b) # gzip magic bytes
+      end)
+    end
+
+    it "uploads the local database and says so" do
+      stub_request(:post, "https://morph.io/run").to_return(status: 200, body: "")
+
+      with_scraper_directory do |dir|
+        File.write(File.join(dir, "data.sqlite"), "sqlite data")
+
+        expect { described_class.execute(dir, false, env_config) }
+          .to output(/\AUploading 21\.00 B \(including data\.sqlite\)\.\.\.\n/).to_stdout
+      end
+
+      expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
+        req.body.include?("data.sqlite")
+      end)
+    end
+
+    it "leaves the database out of the upload when skip_data is true" do
+      stub_request(:post, "https://morph.io/run").to_return(status: 200, body: "")
+
+      with_scraper_directory do |dir|
+        File.write(File.join(dir, "data.sqlite"), "sqlite data")
+
+        expect { described_class.execute(dir, false, env_config, skip_data: true) }
+          .to output(/\AUploading 10\.00 B\.\.\.\n/).to_stdout
+      end
+
+      expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
+        !req.body.include?("data.sqlite")
       end)
     end
 
@@ -154,7 +184,7 @@ RSpec.describe MorphCLI do
   end
 
   describe ".create_tar" do
-    it "packs the given paths into a readable tar" do
+    it "packs the given paths into a readable gzip-compressed tar" do
       Dir.mktmpdir do |dir|
         File.write(File.join(dir, "scraper.rb"), "puts 'hi'\n")
         FileUtils.mkdir_p(File.join(dir, "lib"))
@@ -164,10 +194,22 @@ RSpec.describe MorphCLI do
         tar = described_class.create_tar(dir, paths)
 
         names = []
-        Minitar::Input.open(tar.path) do |input|
-          input.each { |entry| names << entry.full_name }
+        Zlib::GzipReader.open(tar.path) do |gzip|
+          Minitar::Input.open(gzip) do |input|
+            input.each { |entry| names << entry.full_name }
+          end
         end
         expect(names).to contain_exactly("scraper.rb", "lib/helper.rb")
+      end
+    end
+
+    it "compresses the tar" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "scraper.rb"), "a" * 100_000)
+
+        tar = described_class.create_tar(dir, described_class.all_paths(dir))
+
+        expect(File.size(tar.path)).to be < 100_000
       end
     end
 
@@ -179,7 +221,7 @@ RSpec.describe MorphCLI do
 
         expect(tar).not_to be_closed
         expect(tar.pos).to eq(0)
-        expect(tar.read).to include("scraper.rb")
+        expect(tar.read(2)).to eq("\x1f\x8b".b) # gzip magic bytes
       end
     end
   end
