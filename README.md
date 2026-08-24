@@ -26,6 +26,12 @@ Yup, that's it.
 It runs the code that's there right now. It doesn't need to be checked into git
 or anything.
 
+If there's a `data.sqlite` in the directory it gets uploaded along with the
+code, so the scraper run picks up from the data it already has. If it's big and
+you'd rather not wait for the upload, leave it out with
+
+    morph --skip-data
+
 The first time you run it, it will ask for your morph.io API key, which it
 saves in `~/.morph`.
 
@@ -38,8 +44,7 @@ For help
 It uploads your code every time. So if it's big it might take a little while.
 Scrapers are not usually so I'm hoping this won't really be an issue.
 
-It doesn't yet return you the resulting sqlite database (or use the one you
-might have locally).
+It doesn't yet return you the resulting sqlite database.
 
 ## Development
 

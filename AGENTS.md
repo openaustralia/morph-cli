@@ -34,9 +34,11 @@ command-line familiarity.
   included.** `all_paths` prunes directories whose name starts with `.`, so
   `.git` and `.bundle` are skipped, but a dot-*file* is not a directory and so
   gets packed: a top-level `.env` is uploaded, as is `data.sqlite` and anything
-  else the person happens to have sitting there. Keep that distinction in mind
-  before changing `all_paths`, and don't describe the behaviour as "skips
-  hidden files", because it doesn't.
+  else the person happens to have sitting there. `data.sqlite` is deliberate —
+  it's how a run continues from existing data — and is announced in the
+  "Uploading" line, with `--skip-data` to leave it out. Keep that distinction
+  in mind before changing `all_paths`, and don't describe the behaviour as
+  "skips hidden files", because it doesn't.
 - **The server streams newline-delimited JSON, not plain text.** Each line has
   a `stream` (`stdout`, `internalout` or `stderr`) and `text`, and `log` raises
   on any other stream value. Partial chunks are buffered on the newline, so
