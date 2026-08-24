@@ -22,12 +22,8 @@ module MorphCLI
     end
 
     database_path = MorphCLI.database_path(directory)
-    if skip_data
-      all_paths.delete(database_path)
-      database_path = nil
-    else
-      all_paths.delete(database_path)
-    end
+    all_paths.delete(database_path)
+    database_path = nil if skip_data
 
     size = MorphCLI.get_dir_size(directory, all_paths + [database_path].compact)
     puts "Uploading #{size}#{" (including #{database_path})" if database_path}..."
