@@ -25,9 +25,11 @@ module MorphCLI
     if skip_data
       all_paths.delete(database_path)
       database_path = nil
+    else
+      all_paths.delete(database_path)
     end
 
-    size = MorphCLI.get_dir_size(directory, all_paths)
+    size = MorphCLI.get_dir_size(directory, all_paths + [database_path].compact)
     puts "Uploading #{size}#{" (including #{database_path})" if database_path}..."
 
     file = MorphCLI.create_tar(directory, all_paths)
@@ -40,10 +42,18 @@ module MorphCLI
 
     buffer = +""
     connection.post("/run") do |req|
-      req.body = {
+      body = {
         api_key: env_config[:api_key],
         code: Faraday::Multipart::FilePart.new(file, "application/gzip")
       }
+      if database_path
+        body[:database] = Faraday::Multipart::FilePart.new(
+          File.join(directory, database_path),
+          "application/octet-stream",
+          database_path
+        )
+      end
+      req.body = body
       # 10 minutes should be "enough for everyone", right?
       # Setting :timeout to nil in the config will disable the timeout
       # entirely. The Faraday default is 60 seconds.
