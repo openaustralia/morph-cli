@@ -2,6 +2,7 @@ require "morph-cli/version"
 require 'yaml'
 require 'find'
 require 'json'
+require 'open3'
 require 'pathname'
 require 'tempfile'
 require 'fileutils'
@@ -54,6 +55,46 @@ module MorphCLI
         buffer = after
       end
     end
+  end
+
+  def self.download(directory, env_config, scraper)
+    connection = Faraday.new(url: env_config[:base_url]) do |f|
+      f.response :raise_error
+      f.adapter Faraday.default_adapter
+    end
+
+    # Download to a tempfile in the same directory first so a failed download
+    # doesn't clobber an existing database
+    tempfile = Tempfile.new(["morph", ".sqlite"], directory)
+    tempfile.binmode
+
+    begin
+      connection.get("/#{scraper}/data.sqlite") do |req|
+        req.params[:key] = env_config[:api_key]
+        req.options.timeout = env_config.fetch(:timeout, 600)
+        req.options.on_data = proc do |chunk, _overall_received_bytes, env|
+          tempfile.write(chunk) if env.status == 200
+        end
+      end
+
+      tempfile.close
+      File.rename(tempfile.path, File.join(directory, "data.sqlite"))
+    ensure
+      tempfile.close unless tempfile.closed?
+      FileUtils.rm_f(tempfile.path)
+    end
+
+    size = Filesize.from("#{File.size(File.join(directory, 'data.sqlite'))} B").pretty
+    puts "Saved #{size} to data.sqlite"
+  end
+
+  # The name of the scraper on morph (owner/name), worked out from the git
+  # remote of the given directory. Returns nil if it can't be worked out.
+  def self.scraper_name(directory)
+    url, _stderr, status = Open3.capture3("git", "-C", directory, "config", "--get", "remote.origin.url")
+    return nil unless status.success?
+
+    url.strip[%r{([^/:]+/[^/:]+?)(?:\.git)?\z}, 1]
   end
 
   def self.log(line)

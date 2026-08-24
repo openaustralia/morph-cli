@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `morph download` command that downloads a scraper's sqlite database from
+  morph.io to `data.sqlite`, working out the scraper name from the git remote
+  when it isn't given explicitly
 - SimpleCov coverage reporting and a much expanded test suite (CLI and HTTP behaviour
   tested with WebMock, no network access in tests)
 

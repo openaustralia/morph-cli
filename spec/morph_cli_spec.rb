@@ -65,6 +65,96 @@ RSpec.describe MorphCLI do
     end
   end
 
+  describe ".download" do
+    let(:env_config) { { base_url: "https://morph.io", api_key: "secret-key" } }
+
+    it "saves the scraper's database as data.sqlite and reports the size" do
+      stub_request(:get, "https://morph.io/mlandauer/scraper-blue-mountains/data.sqlite")
+        .with(query: { key: "secret-key" })
+        .to_return(status: 200, body: "sqlite bytes")
+
+      Dir.mktmpdir do |dir|
+        expect { described_class.download(dir, env_config, "mlandauer/scraper-blue-mountains") }
+          .to output("Saved 12.00 B to data.sqlite\n").to_stdout
+
+        expect(File.read(File.join(dir, "data.sqlite"))).to eq("sqlite bytes")
+      end
+    end
+
+    it "overwrites an existing database on a successful download" do
+      stub_request(:get, "https://morph.io/mlandauer/scraper-blue-mountains/data.sqlite")
+        .with(query: { key: "secret-key" })
+        .to_return(status: 200, body: "new data")
+
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "data.sqlite"), "old data")
+
+        expect { described_class.download(dir, env_config, "mlandauer/scraper-blue-mountains") }
+          .to output(/Saved/).to_stdout
+
+        expect(File.read(File.join(dir, "data.sqlite"))).to eq("new data")
+      end
+    end
+
+    it "leaves an existing database and no tempfile behind when the download fails" do
+      stub_request(:get, "https://morph.io/mlandauer/scraper-blue-mountains/data.sqlite")
+        .with(query: { key: "secret-key" })
+        .to_return(status: 404, body: "")
+
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "data.sqlite"), "old data")
+
+        expect { described_class.download(dir, env_config, "mlandauer/scraper-blue-mountains") }
+          .to raise_error(Faraday::ResourceNotFound)
+
+        expect(File.read(File.join(dir, "data.sqlite"))).to eq("old data")
+        expect(Dir.children(dir)).to contain_exactly("data.sqlite")
+      end
+    end
+  end
+
+  describe ".scraper_name" do
+    def with_git_remote(url)
+      Dir.mktmpdir do |dir|
+        system("git", "init", "--quiet", dir, exception: true)
+        system("git", "-C", dir, "remote", "add", "origin", url, exception: true)
+        yield dir
+      end
+    end
+
+    it "derives owner/name from an https git remote" do
+      with_git_remote("https://github.com/openaustralia/morph-cli.git") do |dir|
+        expect(described_class.scraper_name(dir)).to eq("openaustralia/morph-cli")
+      end
+    end
+
+    it "derives owner/name from an ssh git remote" do
+      with_git_remote("git@github.com:openaustralia/morph-cli.git") do |dir|
+        expect(described_class.scraper_name(dir)).to eq("openaustralia/morph-cli")
+      end
+    end
+
+    it "derives owner/name from a remote without a .git suffix" do
+      with_git_remote("https://github.com/openaustralia/morph-cli") do |dir|
+        expect(described_class.scraper_name(dir)).to eq("openaustralia/morph-cli")
+      end
+    end
+
+    it "returns nil when the directory is not a git repository" do
+      Dir.mktmpdir do |dir|
+        expect(described_class.scraper_name(dir)).to be_nil
+      end
+    end
+
+    it "returns nil when the repository has no origin remote" do
+      Dir.mktmpdir do |dir|
+        system("git", "init", "--quiet", dir, exception: true)
+
+        expect(described_class.scraper_name(dir)).to be_nil
+      end
+    end
+  end
+
   describe ".log" do
     it "writes stdout stream lines to stdout" do
       expect { described_class.log(%({"stream":"stdout","text":"out"})) }
