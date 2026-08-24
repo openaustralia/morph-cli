@@ -30,6 +30,38 @@ RSpec.describe MorphCLI do
       end
     end
 
+    it "tells the user the run succeeded when the scraper produces no output" do
+      stub_request(:post, "https://morph.io/run")
+        .to_return(status: 200, body: %({"stream":"internalout","text":"Injecting configuration"}\n))
+
+      with_scraper_directory do |dir|
+        expect { described_class.execute(dir, false, env_config) }
+          .to output(/Scraper didn't output anything, but it ran successfully\./).to_stdout
+      end
+    end
+
+    it "doesn't add a message when the scraper writes to stdout" do
+      stub_request(:post, "https://morph.io/run")
+        .to_return(status: 200, body: %({"stream":"stdout","text":"hello from morph"}\n))
+
+      with_scraper_directory do |dir|
+        expect { described_class.execute(dir, false, env_config) }
+          .not_to output(/ran successfully/).to_stdout
+      end
+    end
+
+    it "doesn't add a message when the scraper writes to stderr" do
+      stub_request(:post, "https://morph.io/run")
+        .to_return(status: 200, body: %({"stream":"stderr","text":"oops"}\n))
+
+      with_scraper_directory do |dir|
+        expect do
+          expect { described_class.execute(dir, false, env_config) }
+            .not_to output(/ran successfully/).to_stdout
+        end.to output("oops\n").to_stderr
+      end
+    end
+
     it "posts the API key and the code as multipart form data" do
       stub_request(:post, "https://morph.io/run").to_return(status: 200, body: "")
 
