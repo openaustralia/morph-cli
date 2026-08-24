@@ -14,6 +14,8 @@ module MorphCLI
 
     desc '[execute]', 'execute morph scraper'
     option :directory, default: Dir.getwd
+    option :skip_data, default: false, type: :boolean,
+                       desc: "Don't upload the local data.sqlite database with the scraper"
 
     def execute
       config = MorphCLI.load_config
@@ -28,7 +30,7 @@ module MorphCLI
       api_key_is_valid = false
       until api_key_is_valid
         begin
-          MorphCLI.execute(options[:directory], options[:dev], env_config)
+          MorphCLI.execute(options[:directory], options[:dev], env_config, skip_data: options[:skip_data])
           api_key_is_valid = true
         rescue Faraday::UnauthorizedError
           puts "Your key isn't working. Let's try again."

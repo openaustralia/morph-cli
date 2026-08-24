@@ -45,6 +45,36 @@ RSpec.describe MorphCLI do
       end)
     end
 
+    it "uploads the local database and says so" do
+      stub_request(:post, "https://morph.io/run").to_return(status: 200, body: "")
+
+      with_scraper_directory do |dir|
+        File.write(File.join(dir, "data.sqlite"), "sqlite data")
+
+        expect { described_class.execute(dir, false, env_config) }
+          .to output(/\AUploading 21\.00 B \(including data\.sqlite\)\.\.\.\n\z/).to_stdout
+      end
+
+      expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
+        req.body.include?("data.sqlite")
+      end)
+    end
+
+    it "leaves the database out of the upload when skip_data is true" do
+      stub_request(:post, "https://morph.io/run").to_return(status: 200, body: "")
+
+      with_scraper_directory do |dir|
+        File.write(File.join(dir, "data.sqlite"), "sqlite data")
+
+        expect { described_class.execute(dir, false, env_config, skip_data: true) }
+          .to output(/\AUploading 10\.00 B\.\.\.\n\z/).to_stdout
+      end
+
+      expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
+        !req.body.include?("data.sqlite")
+      end)
+    end
+
     it "raises Faraday::UnauthorizedError when the API key is rejected" do
       stub_request(:post, "https://morph.io/run").to_return(status: 401, body: "")
 
