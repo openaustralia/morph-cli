@@ -1,5 +1,7 @@
 require "fileutils"
 require "tmpdir"
+require "stringio"
+require "zlib"
 
 require "spec_helper"
 
@@ -18,6 +20,23 @@ RSpec.describe MorphCLI do
         File.write(File.join(dir, "scraper.rb"), "puts 'hi'\n")
         yield dir
       end
+    end
+
+    # Extracts tar entry names from a multipart request body that contains
+    # a gzip-compressed tar as one of its parts.
+    def tar_entry_names(body)
+      binary = body.b
+      gzip_start = binary.index("\x1f\x8b".b)
+      return [] unless gzip_start
+
+      gzip_io = StringIO.new(binary[gzip_start..])
+      names = []
+      Zlib::GzipReader.wrap(gzip_io) do |gz|
+        Minitar::Input.open(gz) { |tar| tar.each { |entry| names << entry.full_name } }
+      end
+      names
+    rescue StandardError
+      []
     end
 
     it "uploads the scraper and streams the run output to stdout" do
@@ -88,7 +107,7 @@ RSpec.describe MorphCLI do
       end
 
       expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
-        req.body.include?("data.sqlite")
+        tar_entry_names(req.body).include?("data.sqlite")
       end)
     end
 
@@ -103,7 +122,7 @@ RSpec.describe MorphCLI do
       end
 
       expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
-        !req.body.include?("data.sqlite")
+        !tar_entry_names(req.body).include?("data.sqlite")
       end)
     end
 
