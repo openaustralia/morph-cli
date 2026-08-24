@@ -31,6 +31,15 @@ module MorphCLI
 
     file = MorphCLI.create_tar(directory, all_paths)
 
+    scraper_output = run(file, env_config)
+
+    puts "Scraper didn't output anything, but it ran successfully." unless scraper_output
+  end
+
+  # Uploads the code to the server, streams the run output to the local
+  # stdout/stderr and returns whether the scraper itself wrote anything
+  # to stdout or stderr
+  def self.run(file, env_config)
     connection = Faraday.new(url: env_config[:base_url]) do |f|
       f.request :multipart
       f.response :raise_error
@@ -38,6 +47,7 @@ module MorphCLI
     end
 
     buffer = +""
+    scraper_output = false
     connection.post("/run") do |req|
       req.body = {
         api_key: env_config[:api_key],
@@ -52,12 +62,18 @@ module MorphCLI
 
         before, match, after = chunk.rpartition("\n")
         buffer << before << match
-        buffer.split("\n").each { |l| log(l) }
+        buffer.split("\n").each do |l|
+          stream = log(l)
+          scraper_output = true if %w[stdout stderr].include?(stream)
+        end
         buffer = after
       end
     end
+    scraper_output
   end
 
+  # Writes the line to the local stdout/stderr and returns the name of the
+  # stream it came from
   def self.log(line)
     return if line.empty?
 
@@ -72,6 +88,7 @@ module MorphCLI
         end
 
     s.puts a["text"]
+    a["stream"]
   end
 
   def self.config_path

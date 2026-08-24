@@ -1,5 +1,7 @@
 require "fileutils"
 require "tmpdir"
+require "stringio"
+require "zlib"
 
 require "spec_helper"
 
@@ -20,6 +22,23 @@ RSpec.describe MorphCLI do
       end
     end
 
+    # Extracts tar entry names from a multipart request body that contains
+    # a gzip-compressed tar as one of its parts.
+    def tar_entry_names(body)
+      binary = body.b
+      gzip_start = binary.index("\x1f\x8b".b)
+      return [] unless gzip_start
+
+      gzip_io = StringIO.new(binary[gzip_start..])
+      names = []
+      Zlib::GzipReader.wrap(gzip_io) do |gz|
+        Minitar::Input.open(gz) { |tar| tar.each { |entry| names << entry.full_name } }
+      end
+      names
+    rescue StandardError
+      []
+    end
+
     it "uploads the scraper and streams the run output to stdout" do
       stub_request(:post, "https://morph.io/run")
         .to_return(status: 200, body: %({"stream":"stdout","text":"hello from morph"}\n))
@@ -27,6 +46,38 @@ RSpec.describe MorphCLI do
       with_scraper_directory do |dir|
         expect { described_class.execute(dir, false, env_config) }
           .to output(/\AUploading .*\nhello from morph\n\z/).to_stdout
+      end
+    end
+
+    it "tells the user the run succeeded when the scraper produces no output" do
+      stub_request(:post, "https://morph.io/run")
+        .to_return(status: 200, body: %({"stream":"internalout","text":"Injecting configuration"}\n))
+
+      with_scraper_directory do |dir|
+        expect { described_class.execute(dir, false, env_config) }
+          .to output(/Scraper didn't output anything, but it ran successfully\./).to_stdout
+      end
+    end
+
+    it "doesn't add a message when the scraper writes to stdout" do
+      stub_request(:post, "https://morph.io/run")
+        .to_return(status: 200, body: %({"stream":"stdout","text":"hello from morph"}\n))
+
+      with_scraper_directory do |dir|
+        expect { described_class.execute(dir, false, env_config) }
+          .not_to output(/ran successfully/).to_stdout
+      end
+    end
+
+    it "doesn't add a message when the scraper writes to stderr" do
+      stub_request(:post, "https://morph.io/run")
+        .to_return(status: 200, body: %({"stream":"stderr","text":"oops"}\n))
+
+      with_scraper_directory do |dir|
+        expect do
+          expect { described_class.execute(dir, false, env_config) }
+            .not_to output(/ran successfully/).to_stdout
+        end.to output("oops\n").to_stderr
       end
     end
 
@@ -52,11 +103,11 @@ RSpec.describe MorphCLI do
         File.write(File.join(dir, "data.sqlite"), "sqlite data")
 
         expect { described_class.execute(dir, false, env_config) }
-          .to output(/\AUploading 21\.00 B \(including data\.sqlite\)\.\.\.\n\z/).to_stdout
+          .to output(/\AUploading 21\.00 B \(including data\.sqlite\)\.\.\.\n/).to_stdout
       end
 
       expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
-        req.body.include?("data.sqlite")
+        tar_entry_names(req.body).include?("data.sqlite")
       end)
     end
 
@@ -67,11 +118,11 @@ RSpec.describe MorphCLI do
         File.write(File.join(dir, "data.sqlite"), "sqlite data")
 
         expect { described_class.execute(dir, false, env_config, skip_data: true) }
-          .to output(/\AUploading 10\.00 B\.\.\.\n\z/).to_stdout
+          .to output(/\AUploading 10\.00 B\.\.\.\n/).to_stdout
       end
 
       expect(WebMock).to(have_requested(:post, "https://morph.io/run").with do |req|
-        !req.body.include?("data.sqlite")
+        !tar_entry_names(req.body).include?("data.sqlite")
       end)
     end
 
