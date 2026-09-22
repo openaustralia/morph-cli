@@ -35,6 +35,16 @@ you'd rather not wait for the upload, leave it out with
 The first time you run it, it will ask for your morph.io API key, which it
 saves in `~/.morph`.
 
+To download the sqlite database of a scraper from morph.io to `data.sqlite`
+in your current directory
+
+    morph download
+
+That works out which scraper you mean from the git remote of the current
+directory. You can also name the scraper explicitly
+
+    morph download openaustralia/example_scraper
+
 For help
 
     morph help
@@ -43,8 +53,6 @@ For help
 
 It uploads your code every time. So if it's big it might take a little while.
 Scrapers are not usually so I'm hoping this won't really be an issue.
-
-It doesn't yet return you the resulting sqlite database.
 
 ## Development
 
